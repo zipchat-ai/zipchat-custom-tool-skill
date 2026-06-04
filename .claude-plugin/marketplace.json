@@ -1,0 +1,11 @@
+{
+  "name": "zipchat-tools",
+  "owner": { "name": "Ruslan Leteyski", "email": "ruslan@zipchat.ai" },
+  "plugins": [
+    {
+      "name": "zipchat-custom-tool",
+      "source": "./",
+      "description": "Author a Zipchat custom tool: well-formed prompt + variables + channels + note."
+    }
+  ]
+}
