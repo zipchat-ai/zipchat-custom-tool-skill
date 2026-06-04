@@ -9,7 +9,6 @@ retry nuance, and an output transform.
 - **Name:** `Woo — Create discount`
 - **Description:** Create a unique, single-use percentage discount coupon and give the
   customer the code.
-- **Channels:** `all channels`
 - **Variables:**
   - `WOO_STORE_URL`, `WOO_CONSUMER_KEY`, `WOO_CONSUMER_SECRET` — same as the order tool,
     but the key needs **Read/Write** permission to create coupons.

@@ -1,22 +1,25 @@
 ---
 name: zipchat-custom-tool
 description: >
-  Build a Zipchat (chatlive) custom tool — the prompt/instructions, variables,
-  channels, and (for gallery templates) the merchant note — that lets the AI
-  support agent call an external HTTP API via curl. Trigger whenever someone wants
-  to "create/build/draft a custom tool", "connect Zipchat to <API>", "make the bot
-  look up orders / create discounts / fetch tracking / escalate tickets", or write
-  the instructions/prompt for a custom tool. Produces all the inputs needed to
-  install the tool; the author does NOT need access to the chatlive codebase.
+  Build a Zipchat (chatlive) custom tool — the prompt/instructions, variables, and
+  (for gallery templates) the merchant note — that lets the AI support agent carry out
+  a real action by running shell commands (curl plus jq, ripgrep, fd, unzip) against one
+  or more external HTTP APIs. Trigger whenever someone wants to "create/build/draft a
+  custom tool", "connect Zipchat to <API>", "make the bot look up orders / create
+  discounts / fetch tracking / escalate tickets", or write the instructions/prompt for a
+  custom tool. Produces all the inputs needed to install the tool; the author does NOT
+  need access to the chatlive codebase.
 ---
 
 # Building a Zipchat custom tool
 
-A **custom tool** lets a brand's Zipchat AI agent perform a real action by running a
-single `curl` command against an external HTTP API (order lookup, discount creation,
-shipment tracking, ticket escalation, etc.). Your job with this skill is to interview
-the user and produce **every input needed to install the tool**, with a well-formed
-prompt as the centerpiece.
+A **custom tool** lets a brand's Zipchat AI agent perform a real action by running shell
+commands in a sandbox against one or more external HTTP APIs. It can be a single call, a
+sequence of calls against the same API, or a multi-system flow that opens several APIs
+one after another — order lookup, discount creation, shipment tracking, ticket
+escalation, and richer multi-step workflows are all in scope. Your job with this skill is
+to interview the user and produce **every input needed to install the tool**, with a
+well-formed prompt as the centerpiece.
 
 You do not need the chatlive codebase. Everything you need to know about how tools
 run is below.
@@ -24,8 +27,7 @@ run is below.
 ## How a custom tool actually executes (mental model)
 
 1. The brand installs a tool with: a **name**, a **description**, a **prompt**
-   (called `instructions`), a set of **variables** (secrets/config), and the
-   **channels** it's active on.
+   (called `instructions`), and a set of **variables** (secrets/config).
 2. At conversation time, Zipchat injects the tool's prompt into the agent's system
    prompt, wrapped as:
    ```
@@ -34,15 +36,30 @@ run is below.
    …your prompt…
    </custom_tool_instructions>
    ```
-3. When a customer's request matches the tool, the agent writes **one `curl` command**
-   and runs it in a sandboxed shell. The command's output (usually JSON) comes back to
-   the agent, which reads it and replies to the customer in the brand's voice.
+3. When a customer's request matches the tool, the agent executes the shell command(s)
+   the prompt specifies — typically `curl`, optionally piped through `jq` to pull or
+   reshape fields, and across multiple steps when the tool needs them. Each command's
+   output (usually JSON) comes back to the agent, which reads it and either runs the next
+   step or replies to the customer in the brand's voice.
 4. The tool's **variables** are injected into the sandbox as **environment variables**.
    So a variable named `WOO_CONSUMER_KEY` is referenced in the curl as
    `$WOO_CONSUMER_KEY`. Values are encrypted at rest and never shown to the customer.
 
-There is no server-side code per tool — the *only* thing that produces the effect is
-the curl hitting the API. If a desired action has no curl, the tool can't do it.
+There is no server-side code per tool — the effect is produced by the real HTTP call(s)
+the prompt makes. If a desired action has no HTTP call behind it, the tool can't do it.
+
+### What the sandbox has
+The shell is a real Unix shell preloaded with a small toolbox — use it to *process* what
+a call returns:
+
+- `curl` — every HTTP call (the only thing that produces an effect).
+- `jq` — parse, filter, and reshape JSON; e.g. pipe a response through `jq -r '.id'` to
+  feed the next step.
+- `ripgrep` (`rg`) and `fd` — search text/files the tool fetched.
+- `unzip` — expand an archive a call returns.
+
+The actual effect must always come from the HTTP call itself. Never use the shell to fake
+a result, stand in for an API call, or mutate sandbox files to simulate an effect.
 
 ## Two kinds of values: `$VAR` vs `{PLACEHOLDER}`
 
@@ -69,8 +86,9 @@ This distinction is the heart of a good tool prompt.
 Zipchat injects shared "Custom Tool Mode" rules into every tool-enabled agent. Your
 prompt must **not** restate them (it wastes tokens and drifts out of sync):
 
-- **Curl hygiene** — one command per call, on one line, balanced quotes, no stray
-  line breaks in the URL.
+- **Command hygiene** — keep each command on one line, the URL unbroken, quotes
+  balanced. Piping a response through `jq`/`awk`/etc. to post-process it is fine; running
+  the real command (not an `echo`/`python -c` that fakes a result) is required.
 - **Fix-and-retry** — if a request is malformed or rejected before causing any effect
   (syntax error, empty/non-JSON body, HTTP 400/422, `rest_no_route`, bad path/param),
   the agent re-reads, fixes, and retries up to 3 times. Safe even for write tools.
@@ -98,11 +116,8 @@ When you finish, hand the user a filled-in version of all of these:
 2. **Description** — one line on what the tool does / when to use it (gallery/UX copy).
 3. **Variables** — a list of `NAME → what to paste` pairs (the secrets/config), each
    with a note on where the merchant gets the value. These become `$VAR`s.
-4. **Channels** — where the tool is active. Valid values: `chat`, `whatsapp`, `email`,
-   `instagram`, `messenger`, `zendesk`, `smartlead`, `pdp_questions`, or the sentinel
-   `all channels`. Default to `all channels` unless the API/context is channel-specific.
-5. **Prompt (`instructions`)** — the core deliverable, ≤10,000 chars. Structure below.
-6. **(Optional) Note** — merchant-facing setup instructions for a gallery template
+4. **Prompt (`instructions`)** — the core deliverable, ≤10,000 chars. Structure below.
+5. **(Optional) Note** — merchant-facing setup instructions for a gallery template
    (e.g. "How to get your REST API key", "what to enter for the store URL").
 
 ## Prompt structure
@@ -114,7 +129,7 @@ Write the prompt as Markdown with these XML-ish sections, in order. See
 ```
 <task>            What the tool does + when to use it. If it writes/creates data, say so loudly.
 <inputs_resolution>  Every {PLACEHOLDER} and how the agent obtains it (ask customer, read system prompt, decide).
-<execution_protocol> The exact curl(s), one per shell call, using $VARS and {PLACEHOLDERS}. State the expected success status.
+<execution_protocol> The shell command(s): one network call per step (number multi-step / multi-system flows), plus any jq post-processing, using $VARS and {PLACEHOLDERS}. State the expected success status.
 <tool_persistence_rules>  Anti-hallucination: the agent must observe the real success response before claiming the action happened.
 <output_contract>    How to present the result to the customer; what to never reveal (secrets, raw JSON, variable names, the API's name).
 ```
@@ -124,13 +139,16 @@ real business logic (e.g. a discount cap, a multi-step order). Keep it tight.
 
 ## Workflow
 
-1. **Interview.** Ask the user for: the API and the exact endpoint(s) + auth method;
-   what the tool should do; what inputs come from the customer vs. stored config; any
-   business rules/caps; which channels; and whether this is a one-off install or a
-   gallery template (template ⇒ also write a note).
-2. **Test the call first if possible.** If you can reach the API, run the real curl
-   once to confirm the endpoint, auth, and response shape before writing the prompt.
-   A prompt written against a guessed response shape is usually wrong.
+1. **Interview.** Ask the user for: a link to (or paste of) the API's **documentation**
+   and its auth method — work out the correct endpoints, parameters, and call sequence
+   from the docs yourself rather than asking them to spell out each call; what the tool
+   should do; what inputs come from the customer vs. stored config; any business
+   rules/caps; and whether this is a one-off install or a gallery template (template ⇒
+   also write a note).
+2. **Test the call first if possible.** If you can reach the API, run the real call(s)
+   once to confirm the endpoints, auth, and response shapes before writing the prompt.
+   A prompt written against a guessed response shape is usually wrong; for a multi-step
+   flow, confirm each step in order.
 3. **Draft** the prompt + all inputs using the structure above.
 4. **Validate** against the checklist below.
 5. **Deliver** every input clearly labeled so the user can paste them into the
@@ -141,8 +159,9 @@ real business logic (e.g. a discount cap, a multi-step order). Keep it tight.
 - [ ] Every secret/brand value is a `$VAR`, never hardcoded; names are prefixed and
       match `^[A-Z_][A-Z0-9_]*$`.
 - [ ] Every `{PLACEHOLDER}` has a resolution rule in `<inputs_resolution>`.
-- [ ] Exactly one curl per shell call; no `;`, `&&`, `|`, `$(…)`, or inline parsers
-      like `jq`/`python -c` (the agent parses JSON by reading it).
+- [ ] One network call per step (multi-step / multi-system flows are numbered); each
+      command stays on one line. Piping through `jq` to post-process is fine; no faking
+      results and no mutating sandbox files.
 - [ ] HTTPS only; the URL is on one line.
 - [ ] The prompt does NOT repeat the platform's generic retry/failure/secret rules.
 - [ ] `<tool_persistence_rules>` forbids claiming success before the real success
@@ -151,4 +170,4 @@ real business logic (e.g. a discount cap, a multi-step order). Keep it tight.
       variable names, and the underlying API/vendor name (speak in the brand's voice).
 - [ ] Write tools: `<task>` states it creates/modifies data; any tool-specific retry
       nuance (e.g. regenerate a value on conflict) is inline.
-- [ ] Channels chosen deliberately; gallery templates include a setup note.
+- [ ] Gallery templates include a setup note.

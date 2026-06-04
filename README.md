@@ -1,9 +1,10 @@
 # zipchat-custom-tool
 
 A [Claude Code](https://claude.com/claude-code) skill for building **Zipchat custom
-tools** — the prompt, variables, channels, and merchant note that let a brand's Zipchat
-AI support agent perform a real action (look up an order, create a discount, fetch
-tracking, escalate a ticket) by calling an external HTTP API via `curl`.
+tools** — the prompt, variables, and merchant note that let a brand's Zipchat AI support
+agent perform a real action (look up an order, create a discount, fetch tracking,
+escalate a ticket, or a richer multi-step flow) by running shell commands — `curl` plus
+`jq`, `ripgrep`, `fd`, `unzip` — against one or more external HTTP APIs.
 
 You **don't need access to the Zipchat codebase** to use this. The skill embeds
 everything about how a custom tool executes, so it can interview you and hand back every
@@ -16,11 +17,10 @@ For any tool you describe, the skill drafts:
 1. **Name** — the agent-facing section header.
 2. **Description** — one-line gallery/UX copy.
 3. **Variables** — the `NAME → what to paste` secrets/config (injected as env vars).
-4. **Channels** — where the tool is active (`chat`, `whatsapp`, `email`, … or `all channels`).
-5. **Prompt (`instructions`)** — the core deliverable: a well-formed, structured prompt
+4. **Prompt (`instructions`)** — the core deliverable: a well-formed, structured prompt
    (`<task>`, `<inputs_resolution>`, `<execution_protocol>`, `<tool_persistence_rules>`,
    `<output_contract>`).
-6. **(Optional) Note** — merchant-facing setup instructions for a gallery template.
+5. **(Optional) Note** — merchant-facing setup instructions for a gallery template.
 
 It knows the platform rules already covered by Zipchat (retry/failure/secret hygiene), so
 it won't bloat your prompt by repeating them, and it validates the result against a

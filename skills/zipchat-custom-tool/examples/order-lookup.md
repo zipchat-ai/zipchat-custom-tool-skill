@@ -8,7 +8,6 @@ Shows multi-step execution, customer-supplied inputs, and a JSON-quirk note.
 - **Name:** `Woo — Track orders`
 - **Description:** Look up a customer's WooCommerce order and report its status,
   summary, and tracking link.
-- **Channels:** `all channels`
 - **Variables:**
   - `WOO_STORE_URL` → the store's base URL, e.g. `https://shop.example.com` (no
     trailing slash). *Where: the store's public address.*
