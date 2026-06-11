@@ -26,25 +26,31 @@ It knows the platform rules already covered by Zipchat (retry/failure/secret hyg
 it won't bloat your prompt by repeating them, and it validates the result against a
 checklist before handing it over.
 
-## Install (as a Claude Code plugin)
+## Add to Claude Code (plugin — recommended)
+
+Inside a [Claude Code](https://claude.com/claude-code) session, run:
 
 ```
-/plugin marketplace add Leteyski/zipchat-custom-tool-skill
+/plugin marketplace add zipchat-ai/zipchat-custom-tool-skill
 /plugin install zipchat-custom-tool@zipchat-tools
 ```
 
-Then invoke it by asking Claude to "build a Zipchat custom tool" / "connect Zipchat to
-<API>", or run `/zipchat-custom-tool`.
+Restart Claude Code when prompted. Then invoke the skill by asking Claude to "build a
+Zipchat custom tool" / "connect Zipchat to <API>", or run `/zipchat-custom-tool`.
 
-## Install (manual, no plugin)
+To update later: `/plugin marketplace update zipchat-tools`.
 
-Copy the skill folder into your personal skills directory:
+## Add to Claude Code (manual, no plugin)
+
+Clone the repo and copy the skill folder into your personal skills directory:
 
 ```
-cp -R skills/zipchat-custom-tool ~/.claude/skills/
+git clone https://github.com/zipchat-ai/zipchat-custom-tool-skill.git
+cp -R zipchat-custom-tool-skill/skills/zipchat-custom-tool ~/.claude/skills/
 ```
 
-Available in every project. Or drop it into a single project's `.claude/skills/` instead.
+It's then available in every project. To scope it to a single project instead, copy it
+into that project's `.claude/skills/` directory.
 
 ## What's inside
 
