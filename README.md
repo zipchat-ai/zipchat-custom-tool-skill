@@ -26,6 +26,15 @@ It knows the platform rules already covered by Zipchat (retry/failure/secret hyg
 it won't bloat your prompt by repeating them, and it validates the result against a
 checklist before handing it over.
 
+## Debugging a tool that doesn't work
+
+If an installed tool misbehaves, the skill will ask you for the **debug transcript**:
+in the Zipchat dashboard, find the AI reply (in Conversations or Test chat), click
+**Debug** → **RAW debug info** → **Copy debug info**, and paste the result into the
+chat. The transcript contains the exact prompts, shell commands, and API responses for
+that reply, which the skill reads to pinpoint whether the problem is activation, the
+trigger wording, the composed command, or the API response — and hands back a fix.
+
 ## Add to Claude Code (plugin — recommended)
 
 Inside a [Claude Code](https://claude.com/claude-code) session, run:

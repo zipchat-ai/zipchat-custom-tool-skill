@@ -1,6 +1,6 @@
 {
   "name": "zipchat-custom-tool",
   "description": "Build a Zipchat custom tool — the prompt, variables, channels, and merchant note — that lets the AI support agent call an external HTTP API via curl. No codebase access required.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "Ruslan Leteyski" }
 }

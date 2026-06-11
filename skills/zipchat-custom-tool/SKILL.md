@@ -6,9 +6,10 @@ description: >
   a real action by running shell commands (curl plus jq, ripgrep, fd, unzip) against one
   or more external HTTP APIs. Trigger whenever someone wants to "create/build/draft a
   custom tool", "connect Zipchat to <API>", "make the bot look up orders / create
-  discounts / fetch tracking / escalate tickets", or write the instructions/prompt for a
-  custom tool. Produces all the inputs needed to install the tool; the author does NOT
-  need access to the chatlive codebase.
+  discounts / fetch tracking / escalate tickets", write the instructions/prompt for a
+  custom tool, or debug/fix a custom tool that isn't working (it can read the debug
+  transcript from the dashboard's Debug modal). Produces all the inputs needed to
+  install the tool; the author does NOT need access to the chatlive codebase.
 ---
 
 # Building a Zipchat custom tool
@@ -153,6 +154,58 @@ real business logic (e.g. a discount cap, a multi-step order). Keep it tight.
 4. **Validate** against the checklist below.
 5. **Deliver** every input clearly labeled so the user can paste them into the
    install form. Variables and the note go separately from the prompt.
+6. **Debug.** If the user reports that the installed tool misbehaves, do not guess —
+   ask for the debug transcript and follow "When an installed tool doesn't work" below.
+
+## When an installed tool doesn't work — ask for the debug transcript
+
+If the user says the tool misbehaves (never fires, fails, or the agent replies
+wrong), ask them to fetch the **debug transcript** for a real example before you
+change anything:
+
+1. In the Zipchat dashboard, open **Conversations** — or reproduce the problem in the
+   **Test chat** sidebar — and find the AI reply where the tool should have acted.
+2. Click **Debug** under that reply, then switch to the **RAW debug info** tab.
+3. Click **Copy debug info** and paste the transcript back into this chat.
+
+The transcript is a plain-text dump of everything the agent saw and did for that one
+reply:
+
+- `## System prompt` — the full prompt the agent received. An installed tool appears
+  inside it as a `#### <tool name>` section wrapped in `<custom_tool_instructions>`.
+- `## User` / `## Assistant` — the conversation turns sent to the model.
+- `[Tool call] Shell command` — each shell invocation with its arguments, including
+  the exact command line the agent composed (`$VAR` references are shown unexpanded;
+  the values never appear).
+- `## Tool result` — what came back from each command: its stdout/stderr, i.e. the raw
+  API response body or error.
+
+It deliberately contains no model, token, or other platform-internal data — everything
+in it is relevant to your tool.
+
+### How to read it
+
+Work through these checks in order; each maps a symptom to the input you should fix:
+
+1. **Is the tool's prompt in the system prompt at all?** No
+   `<custom_tool_instructions>` block with your tool's name ⇒ the tool is inactive,
+   not installed, or not enabled for that conversation's channel. Fix activation —
+   the prompt itself isn't the problem yet.
+2. **Did the agent attempt a tool call?** Tool present but no `[Tool call]` where one
+   was expected ⇒ the `<task>` trigger description didn't match how the customer
+   actually asked. Sharpen the when-to-use wording (add the phrasings customers use).
+3. **Is the composed command right?** Compare the curl in the tool call against the
+   API docs: endpoint, method, auth header, and `$VAR` names — a typo'd variable name
+   expands to an empty string, which typically shows up as a 401 or a malformed URL.
+   Check each `{PLACEHOLDER}` was filled with a sensible value from the conversation;
+   if not, tighten `<inputs_resolution>`.
+4. **What did the API answer?** The tool result's stdout is the ground truth: 401/403
+   ⇒ wrong or missing variable value; 404/`rest_no_route` ⇒ wrong path or store URL;
+   400/422 ⇒ wrong params; a successful response the agent then misreported ⇒ the
+   response shape doesn't match your `jq` filter or `<output_contract>`.
+5. **Patch and retest.** Hand the user the corrected input(s) — usually just the
+   prompt or one variable — and have them retry the same request in **Test chat**,
+   pulling a fresh transcript if it still fails.
 
 ## Validation checklist
 
