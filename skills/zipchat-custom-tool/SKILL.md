@@ -81,6 +81,47 @@ This distinction is the heart of a good tool prompt.
   `^[A-Z_][A-Z0-9_]*$`.
 - **Must be globally unique across all of a brand's active tools** — so always prefix:
   `WOO_…`, `ZENDESK_…`, `LOYALTY_…`. Never a bare `API_KEY`.
+- Variables live in a **per-chat pool shared across that chat's tools**: define one once
+  and the same `$VAR` can be reused by another tool in the same chat (one stored value,
+  edited in one place). This is exactly why names must be unique per brand and prefixed —
+  a collision would mean two tools fighting over one value.
+
+### Shopify stores: use the managed `$SHOPIFY_API_KEY` (don't ask for a token)
+
+When the tool runs in a **Shopify** store's chat, the platform provides a built-in
+**managed variable, `$SHOPIFY_API_KEY`**, that resolves at runtime to the store's live
+Shopify Admin API access token. It's auto-provisioned for every Shopify chat, can't be
+deleted, and attaches to a tool like any other variable.
+
+What this means when you author a Shopify tool:
+
+- **Use `$SHOPIFY_API_KEY` as the Admin API token** — pass it in the
+  `X-Shopify-Access-Token` header. Do **not** create your own variable for the token, and
+  do **not** write a merchant note telling them to create a custom app or paste an Admin
+  API token. That whole setup step is gone.
+- **`SHOPIFY_API_KEY` is a reserved name.** You can't define a user variable called
+  `SHOPIFY_API_KEY` — the install form rejects it. Reference the managed one instead.
+- **Only the token is managed.** You still need the store's `*.myshopify.com` admin
+  domain for the URL — supply it as a stored variable (e.g. `SHOPIFY_SHOP_DOMAIN`) or a
+  `{PLACEHOLDER}` resolved from the store context; it is not part of the managed key.
+- **Scopes are gated by the managed key's Permissions.** The token only carries the
+  scopes the merchant has granted. A baseline set is always present (today:
+  `read_products`, `read_orders`, `read_all_orders`, `read_content`, `read_themes`,
+  `read_inventory`, `write_customers`, `write_discounts`, plus pixel/event scopes).
+  Anything beyond it — e.g. `write_orders`, `write_products`, `read_draft_orders`,
+  `read_fulfillments`/`write_fulfillments`, `read_price_rules`, `read_locations` — must be
+  enabled on the managed key's **Permissions** screen, which re-auths the store through
+  Zipchat's official Shopify app. If your tool needs a scope beyond the baseline, **call
+  out the exact scope(s)** so the merchant grants them first; otherwise the call returns
+  403 / unauthorized.
+
+Example call (Admin REST, API version `2026-04`):
+```
+curl -sS "https://$SHOPIFY_SHOP_DOMAIN/admin/api/2026-04/orders/{ORDER_ID}.json" -H "X-Shopify-Access-Token: $SHOPIFY_API_KEY"
+```
+
+Non-Shopify tools (WooCommerce, Zendesk, a custom backend, …) are unaffected — keep using
+stored `$VAR`s for their credentials as before.
 
 ## What platform rules ALREADY cover — do NOT repeat these in your prompt
 
@@ -145,7 +186,9 @@ real business logic (e.g. a discount cap, a multi-step order). Keep it tight.
    from the docs yourself rather than asking them to spell out each call; what the tool
    should do; what inputs come from the customer vs. stored config; any business
    rules/caps; and whether this is a one-off install or a gallery template (template ⇒
-   also write a note).
+   also write a note). If the target API is the merchant's own **Shopify** store, skip
+   the auth interview — use the managed `$SHOPIFY_API_KEY` (see the Shopify section above)
+   and confirm which scopes the tool needs.
 2. **Test the call first if possible.** If you can reach the API, run the real call(s)
    once to confirm the endpoints, auth, and response shapes before writing the prompt.
    A prompt written against a guessed response shape is usually wrong; for a multi-step
@@ -211,6 +254,9 @@ Work through these checks in order; each maps a symptom to the input you should 
 
 - [ ] Every secret/brand value is a `$VAR`, never hardcoded; names are prefixed and
       match `^[A-Z_][A-Z0-9_]*$`.
+- [ ] Shopify tools use the managed `$SHOPIFY_API_KEY` (no custom-app token variable, no
+      "paste a token" note); any scope beyond the baseline is called out for the merchant
+      to grant on the managed key's Permissions screen.
 - [ ] Every `{PLACEHOLDER}` has a resolution rule in `<inputs_resolution>`.
 - [ ] One network call per step (multi-step / multi-system flows are numbered); each
       command stays on one line. Piping through `jq` to post-process is fine; no faking
