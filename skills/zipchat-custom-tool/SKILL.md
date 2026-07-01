@@ -76,6 +76,21 @@ This distinction is the heart of a good tool prompt.
 - Use `{PLACEHOLDER}` for values that come from the customer or the agent's judgment.
   Tell the agent in `<inputs_resolution>` how to obtain each one.
 
+### Conversation context: `{CONVERSATION_ID}` and `{CHAT_ID}` are always in the prompt
+
+Every tool-enabled agent is told the **current conversation id and chat id** in its
+system prompt (the shared Custom Tool Mode section). When a tool's API call needs to
+identify the conversation it runs on — escalate it, attach a note, tag or log it, look it
+up — reference these as the `{CONVERSATION_ID}` and `{CHAT_ID}` placeholders and, in
+`<inputs_resolution>`, tell the agent to read the exact values from its system prompt.
+Don't store them as `$VAR`s (they change every conversation) and never ask the customer
+for them.
+
+Example — escalate the current Zipchat conversation via the backend API:
+```
+curl -sS -X PATCH "$ZIPCHAT_BASE_URL/chats/{CHAT_ID}/conversations/{CONVERSATION_ID}/escalation" -H "Authorization: Bearer $ZIPCHAT_API_KEY"
+```
+
 ### Variable naming rules (enforced)
 - Uppercase letters, digits, underscores only; cannot start with a digit. Regex:
   `^[A-Z_][A-Z0-9_]*$`.

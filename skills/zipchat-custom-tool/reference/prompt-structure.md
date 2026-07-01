@@ -19,7 +19,10 @@ List every `{PLACEHOLDER}` the curl uses and tell the agent exactly how to get i
 - **Ask the customer** — e.g. "ask for their order number and email; substitute as
   `{ORDER_ID}` and `{EMAIL}`." Say whether to ask once and wait.
 - **Read the system prompt** — e.g. "the ticket id is in your system prompt; use it as
-  `{TICKET_ID}`. Use it exactly; do not guess."
+  `{TICKET_ID}`. Use it exactly; do not guess." The **current conversation id and chat id
+  are always in the system prompt** (Custom Tool Mode section): use `{CONVERSATION_ID}` /
+  `{CHAT_ID}`, tell the agent to read the exact values, and never store them as `$VAR`s or
+  ask the customer for them.
 - **Decide yourself** — e.g. "choose `{PERCENT}`, a whole number between 1 and
   `$WOO_MAX_DISCOUNT_PERCENT`." Give the rule for the decision.
 - **Generate** — e.g. "generate `{CODE}` as `ZIP` + 6 random uppercase alphanumerics;
